@@ -13,4 +13,4 @@ RUN pip install --no-cache-dir --upgrade -r /scribe-service/requirements.txt
 
 COPY ./app /scribe-service/app
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8002", "--reload"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001", "--reload"]
