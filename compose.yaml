@@ -1,0 +1,52 @@
+services:
+  scribe-service:
+    build: ./scribe-service
+    working_dir: /scribe-service/scribe-service
+    volumes:
+      - .:/scribe-service
+      - transcribe-cache:/root/.cache/transcribe-anything
+      - transcribe-models:/root/.local/share/transcribe-anything
+    expose:
+      - 8001
+    environment:
+      POSTGRES_HOST: scribe-db:5432
+      POSTGRES_USER: scribe
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: database
+    depends_on:
+      scribe-db:
+        condition: service_healthy
+
+  scribe-db:
+    image: postgres:15.2
+    environment:
+      POSTGRES_USER: scribe
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: database
+    expose:
+      - 5432
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U scribe -d database"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - scribe-db-data:/var/lib/postgresql/data
+
+  api-gateway:
+    build: ./api-gateway
+    working_dir: /api-gateway/api-gateway
+    volumes:
+      - .:/api-gateway
+    ports:
+      - 8000:8000
+    environment:
+      SCRIBE_SERVICE_URL: http://scribe-service:8001
+    depends_on:
+      - scribe-service
+
+
+volumes:
+  scribe-db-data:
+  transcribe-cache:
+  transcribe-models:
