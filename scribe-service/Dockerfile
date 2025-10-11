@@ -29,5 +29,4 @@ RUN chmod +x /scribe-service/entrypoint.sh && dos2unix /scribe-service/entrypoin
 
 RUN /bin/bash /scribe-service/entrypoint.sh --only-check-shared-libs
 
-ENTRYPOINT ["/scribe-service/entrypoint.sh"]
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001", "--reload"]
