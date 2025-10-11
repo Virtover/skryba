@@ -4,15 +4,22 @@ services:
     working_dir: /scribe-service/scribe-service
     volumes:
       - .:/scribe-service
-      - transcribe-cache:/root/.cache/transcribe-anything
-      - transcribe-models:/root/.local/share/transcribe-anything
+      - transcribe-cache:/root/.cache
+      - transcribe-packages-cache:/usr/local/lib/python3.11/site-packages
     expose:
       - 8001
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [ gpu ]
     environment:
       POSTGRES_HOST: scribe-db:5432
       POSTGRES_USER: scribe
       POSTGRES_PASSWORD: password
       POSTGRES_DB: database
+      DEVICE: insane # options: cpu, cuda, insane, ...
+      HF_TOKEN: . # replace with your actual Hugging Face token or None
     depends_on:
       scribe-db:
         condition: service_healthy
@@ -48,5 +55,5 @@ services:
 
 volumes:
   scribe-db-data:
+  transcribe-packages-cache:
   transcribe-cache:
-  transcribe-models:

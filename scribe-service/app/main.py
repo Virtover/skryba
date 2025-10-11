@@ -12,6 +12,8 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy import select, update, cast, Date, union
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+from transcribe_anything import transcribe
+from app.config import settings
 
 app = FastAPI()
 
@@ -27,3 +29,11 @@ app.add_middleware(
 @app.on_event("startup")
 async def on_startup():
     await init_models()
+    transcribe(
+        url_or_file="https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+        output_dir="/",
+        task="transcribe",
+        model="large-v3",
+        device=settings.device,
+        hugging_face_token=settings.hf_token if settings.hf_token != "None" else None,
+    ) # test
