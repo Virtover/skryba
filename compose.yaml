@@ -5,7 +5,7 @@ services:
     volumes:
       - .:/scribe-service
       - transcribe-cache:/root/.cache
-      - transcribe-packages-cache:/usr/local/lib/python3.11/site-packages
+      - transcribe-packages-cache:/opt/conda/lib/python3.11/site-packages
     expose:
       - 8001
     deploy:
