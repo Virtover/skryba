@@ -22,9 +22,7 @@ COPY ./requirements.txt /scribe-service/requirements.txt
 
 RUN pip install --no-cache-dir --upgrade -r /scribe-service/requirements.txt
 
-COPY ./app /scribe-service/app
-COPY ./entrypoint.sh /scribe-service/entrypoint.sh
-COPY ./check_linux_shared_libraries.py /scribe-service/check_linux_shared_libraries.py
+COPY . /scribe-service
 
 RUN sed -i 's/\r$//' /scribe-service/entrypoint.sh
 RUN chmod +x /scribe-service/entrypoint.sh && dos2unix /scribe-service/entrypoint.sh
