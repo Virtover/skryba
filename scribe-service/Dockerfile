@@ -4,8 +4,6 @@ ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
 ENV LD_LIBRARY_PATH="\
-/opt/conda/lib:\
-/usr/local/cuda/lib64:\
 /opt/conda/lib/python3.11/site-packages/nvidia/cuda_runtime/lib:\
 /opt/conda/lib/python3.11/site-packages/nvidia/cuda_runtime/lib64:\
 /opt/conda/lib/python3.11/site-packages/nvidia/cudnn/lib:\
