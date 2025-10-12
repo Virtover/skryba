@@ -6,6 +6,7 @@ services:
       - .:/scribe-service
       - transcribe-cache:/root/.cache
       - transcribe-venv:/opt/conda/lib/python3.11/site-packages/transcribe_anything/venv
+      - ffmpeg-bin:/opt/conda/lib/python3.11/site-packages/static_ffmpeg/bin
     expose:
       - 8001
     deploy:
@@ -57,3 +58,4 @@ volumes:
   scribe-db-data:
   transcribe-venv:
   transcribe-cache:
+  ffmpeg-bin:
