@@ -14,6 +14,7 @@ ENV LD_LIBRARY_PATH="\
 /opt/conda/lib/python3.11/site-packages/nvidia/cufft/lib/:\
 /opt/conda/lib/python3.11/site-packages/nvidia/curand/lib/:\
 /opt/conda/lib/python3.11/site-packages/nvidia/nccl/lib/:\
+/opt/conda/lib/python3.11/site-packages/nvidia/nvjitlink/lib/:\
 ${LD_LIBRARY_PATH}"
 
 RUN apt-get update -y && apt-get install -y dos2unix && rm -rf /var/lib/apt/lists/*
