@@ -5,7 +5,7 @@ from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, String, Lar
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 
-class Video(Base):
-    __tablename__ = "video"
+class File(Base):
+    __tablename__ = "files"
 
     id = Column(Integer, primary_key=True, index=True)

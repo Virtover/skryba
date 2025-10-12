@@ -3,8 +3,7 @@ import sys
 import base64
 from app.database import init_models
 from app.dependencies import get_session
-from app.models import Video
-from app.schemas import LoadMoreInput, LoadMoreOutput, MessageOutput, MessageInput
+from app.models import File
 from datetime import datetime
 from fastapi import FastAPI, Depends, WebSocket, WebSocketDisconnect, HTTPException, UploadFile, Response
 from fastapi.middleware.cors import CORSMiddleware
