@@ -39,5 +39,5 @@ async def on_startup():
         model="large-v3",
         device=settings.device,
         hugging_face_token=settings.hf_token if settings.hf_token != "None" else None,
-        other_args=["--flash", "True", "--batch-size", "16"],
+        other_args=["--batch-size", "16"], #"--flash", "True", 
     ) # test
