@@ -5,7 +5,7 @@ services:
     volumes:
       - .:/scribe-service
       - transcribe-cache:/root/.cache
-      - transcribe-packages-cache:/opt/conda/lib/python3.11/site-packages
+      - transcribe-venv:/opt/conda/lib/python3.11/site-packages/transcribe_anything/venv
     expose:
       - 8001
     deploy:
@@ -19,7 +19,7 @@ services:
       POSTGRES_PASSWORD: password
       POSTGRES_DB: database
       DEVICE: insane # options: cpu, cuda, insane, ...
-      HF_TOKEN: . # replace with your actual Hugging Face token or None
+      HF_TOKEN: None # replace with your actual Hugging Face token or None
     depends_on:
       scribe-db:
         condition: service_healthy
@@ -55,5 +55,5 @@ services:
 
 volumes:
   scribe-db-data:
-  transcribe-packages-cache:
+  transcribe-venv:
   transcribe-cache:
