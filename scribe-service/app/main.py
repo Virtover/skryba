@@ -67,7 +67,7 @@ async def scribe_file(model: str, file: UploadFile, db: AsyncSession = Depends(g
     )
     
     zip_filename = f"{file.filename}_transcription_results.zip"
-    zip_path = f"{output_dir}/{zip_filename}"
+    zip_path = f"{output_dir}/{zip_filename}.zip"
     
     with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
         for root, dirs, files in os.walk(output_dir):
