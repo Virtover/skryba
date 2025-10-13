@@ -41,3 +41,5 @@ async def on_startup():
         hugging_face_token=settings.hf_token if settings.hf_token != "None" else None,
         other_args=["--batch-size", "16"], #"--flash", "True", 
     ) # test
+
+#scribe endpoint: model - to choose
