@@ -3,6 +3,7 @@ import httpx
 import json
 from app.config import settings
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, Response, UploadFile, Form
+from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Dict, Any
 
@@ -32,6 +33,15 @@ async def scribe_file(model: str, file: UploadFile):
         )
         if response.status_code != 200:
             raise HTTPException(status_code=response.status_code, detail=response.text)
-        return response.json()
+        headers = {}
+        content_disposition = response.headers.get("content-disposition")
+        if content_disposition:
+            headers["content-disposition"] = content_disposition
+        return StreamingResponse(
+            response.aiter_bytes(),
+            status_code=response.status_code,
+            media_type=response.headers.get("content-type", "application/octet-stream"),
+            headers=headers
+        )
 
 #todo: scribe-url

@@ -10,7 +10,9 @@ from datetime import datetime
 from fastapi import FastAPI, Depends, WebSocket, WebSocketDisconnect, HTTPException, UploadFile, Response, Form
 from typing import Optional
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, FileResponse
+import zipfile
+import tempfile
 from sqlalchemy import select, update, cast, Date, union, delete
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -48,22 +50,37 @@ async def scribe_file(model: str, file: UploadFile, db: AsyncSession = Depends(g
     db.add(new_file)
     await db.commit()
     await db.refresh(new_file)
+
     os.makedirs(f"{FILES_DIR}/{new_file.id}", exist_ok=True)
-    print(file.content_type) # debug
-    # if file.content_type not in ["audio/mpeg", "audio/wav", "video/mp4", "application/pdf", "text/plain"]:
-        # raise HTTPException(status_code=400, detail="Unsupported file type")
     path = f"{FILES_DIR}/{new_file.id}/{file.filename}"
     with open(path, "wb") as f:
         f.write(await file.read())
+    output_dir = f"{FILES_DIR}/{new_file.id}"
     transcribe(
         url_or_file=path,
-        output_dir=f"{FILES_DIR}/{new_file.id}",
+        output_dir=output_dir,
         task="transcribe",
         model=model,
         device=settings.device,
         hugging_face_token=settings.hf_token if settings.hf_token != "None" else None,
         other_args=["--batch-size", "16"], #"--flash", "True",
     )
-    return {"id": new_file.id}
+    
+    zip_filename = f"{file.filename}_transcription_results.zip"
+    zip_path = f"{output_dir}/{zip_filename}"
+    
+    with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+        for root, dirs, files in os.walk(output_dir):
+            for filename in files:
+                if filename != zip_filename:  # Don't include the zip file itself
+                    file_path = os.path.join(root, filename)
+                    arcname = os.path.relpath(file_path, output_dir)
+                    zipf.write(file_path, arcname)
+    
+    return FileResponse(
+        path=zip_path,
+        filename=zip_filename,
+        media_type='application/zip'
+    )
 
 #todo: scribe-url
