@@ -23,7 +23,8 @@ from app.utils import (
     run_transcription, 
     create_zip_archive,
     save_uploaded_file,
-    cleanup_resources
+    cleanup_resources,
+    delete_file_safely
 )
 import os
 from fastapi import UploadFile
@@ -65,13 +66,16 @@ async def scribe_file(
     file_content = await file.read()
     file_path = save_uploaded_file(file_content, file.filename, output_dir)
     run_transcription(file_path, output_dir, model)
-    
+
+    # Delete the uploaded file before zipping
+    delete_file_safely(file_path)
+
     # Create and return zip file
     zip_filename = f"skryba-{new_file.id}_results"
     zip_path = create_zip_archive(output_dir, zip_filename)
 
     background_tasks.add_task(cleanup_resources, new_file.id, output_dir, db)
-    
+
     return FileResponse(
         path=zip_path,
         filename=f"{zip_filename}.zip",

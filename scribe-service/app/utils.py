@@ -94,3 +94,10 @@ def save_uploaded_file(file_content: bytes, filename: str, output_dir: str) -> s
     with open(file_path, "wb") as f:
         f.write(file_content)
     return file_path
+
+def delete_file_safely(file_path: str):
+    """Delete a file, printing a warning if it fails."""
+    try:
+        os.remove(file_path)
+    except Exception as e:
+        print(f"Warning: could not delete uploaded file {file_path}: {e}")
