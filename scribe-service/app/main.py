@@ -44,7 +44,7 @@ async def on_startup():
     os.makedirs(FILES_DIR, exist_ok=True)
 
 #scribe endpoint: model - to choose
-@app.post("/scribe-file/{model}")
+@app.post("/scribe-file/{model}/.zip")
 async def scribe_file(model: str, file: UploadFile, db: AsyncSession = Depends(get_session)):
     new_file = File()
     db.add(new_file)
@@ -84,7 +84,7 @@ async def scribe_file(model: str, file: UploadFile, db: AsyncSession = Depends(g
     )
 
 
-@app.post("/scribe-url/{model}")
+@app.post("/scribe-url/{model}/.zip")
 async def scribe_url(model: str, data: ScribeUrlInput, db: AsyncSession = Depends(get_session)):
     new_file = File()
     db.add(new_file)
