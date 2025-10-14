@@ -1,24 +1,30 @@
-import pytz
-import sys
-import base64
 import os
 from app.database import init_models
 from app.dependencies import get_session
 from app.models import File
 from app.schemas import ScribeUrlInput
-from datetime import datetime
-from fastapi import FastAPI, Depends, WebSocket, WebSocketDisconnect, HTTPException, UploadFile, Response, Form
+from fastapi import (
+    BackgroundTasks, 
+    FastAPI, 
+    Depends, 
+    UploadFile
+)
 from typing import Optional
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, FileResponse
 import zipfile
 import tempfile
 from sqlalchemy import select, update, cast, Date, union, delete
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
-from transcribe_anything import transcribe
-from app.config import settings
 from app.database import async_session
+from app.utils import (
+    create_file_record, 
+    create_output_directory, 
+    run_transcription, 
+    create_zip_archive,
+    save_uploaded_file,
+    cleanup_resources
+)
 import os
 from fastapi import UploadFile
 
@@ -43,79 +49,58 @@ async def on_startup():
         await db.commit()
     os.makedirs(FILES_DIR, exist_ok=True)
 
-#scribe endpoint: model - to choose
-@app.post("/scribe-file/{model}/.zip")
-async def scribe_file(model: str, file: UploadFile, db: AsyncSession = Depends(get_session)):
-    new_file = File()
-    db.add(new_file)
-    await db.commit()
-    await db.refresh(new_file)
 
-    os.makedirs(f"{FILES_DIR}/{new_file.id}", exist_ok=True)
-    path = f"{FILES_DIR}/{new_file.id}/{file.filename}"
-    with open(path, "wb") as f:
-        f.write(await file.read())
-    output_dir = f"{FILES_DIR}/{new_file.id}"
-    transcribe(
-        url_or_file=path,
-        output_dir=output_dir,
-        task="transcribe",
-        model=model,
-        device=settings.device,
-        hugging_face_token=settings.hf_token if settings.hf_token != "None" else None,
-        other_args=["--batch-size", "16"], #"--flash", "True",
-    )
+@app.post("/scribe-file/{model}/.zip")
+async def scribe_file(
+    model: str, 
+    file: UploadFile, 
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_session)
+):
+    # Create database record and output directory
+    new_file = await create_file_record(db)
+    output_dir = create_output_directory(new_file.id, FILES_DIR)
     
-    zip_filename = f"{file.filename}_transcription_results.zip"
-    zip_path = f"{output_dir}/{zip_filename}"
+    # Save uploaded file and run transcription
+    file_content = await file.read()
+    file_path = save_uploaded_file(file_content, file.filename, output_dir)
+    run_transcription(file_path, output_dir, model)
     
-    with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
-        for root, dirs, files in os.walk(output_dir):
-            for filename in files:
-                if filename != zip_filename:  # Don't include the zip file itself
-                    file_path = os.path.join(root, filename)
-                    arcname = os.path.relpath(file_path, output_dir)
-                    zipf.write(file_path, arcname)
+    # Create and return zip file
+    zip_filename = f"skryba-{new_file.id}_results"
+    zip_path = create_zip_archive(output_dir, zip_filename)
+
+    background_tasks.add_task(cleanup_resources, new_file.id, output_dir, db)
     
     return FileResponse(
         path=zip_path,
-        filename=zip_filename,
+        filename=f"{zip_filename}.zip",
         media_type='application/zip'
     )
 
 
 @app.post("/scribe-url/{model}/.zip")
-async def scribe_url(model: str, data: ScribeUrlInput, db: AsyncSession = Depends(get_session)):
-    new_file = File()
-    db.add(new_file)
-    await db.commit()
-    await db.refresh(new_file)
+async def scribe_url(
+    model: str, 
+    data: ScribeUrlInput, 
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_session)
+):
+    # Create database record and output directory
+    new_file = await create_file_record(db)
+    output_dir = create_output_directory(new_file.id, FILES_DIR)
+    
+    # Run transcription on URL
+    run_transcription(data.url, output_dir, model)
+    
+    # Create and return zip file
+    zip_filename = f"skryba-{new_file.id}_results"
+    zip_path = create_zip_archive(output_dir, zip_filename)
 
-    output_dir = f"{FILES_DIR}/{new_file.id}"
-    os.makedirs(output_dir, exist_ok=True)
-
-    transcribe(
-        url_or_file=data.url,
-        output_dir=output_dir,
-        task="transcribe",
-        model=model,
-        device=settings.device,
-        hugging_face_token=settings.hf_token if settings.hf_token != "None" else None
-    )
-
-    zip_filename = f"transcription_results.zip"
-    zip_path = f"{output_dir}/{zip_filename}"
-
-    with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
-        for root, dirs, files in os.walk(output_dir):
-            for filename in files:
-                if filename != zip_filename:  # Don't include the zip file itself
-                    file_path = os.path.join(root, filename)
-                    arcname = os.path.relpath(file_path, output_dir)
-                    zipf.write(file_path, arcname)
+    background_tasks.add_task(cleanup_resources, new_file.id, output_dir, db)
     
     return FileResponse(
         path=zip_path,
-        filename=zip_filename,
+        filename=f"{zip_filename}.zip",
         media_type='application/zip'
     )
