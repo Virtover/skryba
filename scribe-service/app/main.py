@@ -1,4 +1,5 @@
 import os
+import torch
 from app.database import init_models
 from app.dependencies import get_session
 from app.models import File
@@ -28,6 +29,16 @@ from app.utils import (
 )
 import os
 from fastapi import UploadFile
+
+
+# Enable TF32 for matmul and cudnn (Ampere+ GPUs)
+torch.backends.cuda.matmul.allow_tf32 = True
+torch.backends.cudnn.allow_tf32 = True
+try:
+    torch.set_float32_matmul_precision('high')
+except AttributeError:
+    pass  # Older torch versions may not have this
+
 
 app = FastAPI()
 
