@@ -67,7 +67,7 @@ def create_zip_archive(output_dir: str, zip_filename: str) -> str:
     return zip_path
 
 
-async def cleanup_resources(output_dir: str, file_id: int, db: AsyncSession) -> None:
+async def cleanup_resources(file_id: int, output_dir: str, db: AsyncSession) -> None:
     """Clean up output directory and database record.
     
     This is typically called as a background task after serving the response.
