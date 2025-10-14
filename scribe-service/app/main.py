@@ -51,7 +51,7 @@ async def on_startup():
     os.makedirs(FILES_DIR, exist_ok=True)
 
 
-@app.post("/scribe-file/{model}/.zip")
+@app.post("/scribe-file/{model}")
 async def scribe_file(
     model: str, 
     file: UploadFile, 
@@ -83,7 +83,7 @@ async def scribe_file(
     )
 
 
-@app.post("/scribe-url/{model}/.zip")
+@app.post("/scribe-url/{model}")
 async def scribe_url(
     model: str, 
     data: ScribeUrlInput, 

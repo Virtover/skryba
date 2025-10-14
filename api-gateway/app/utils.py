@@ -25,7 +25,7 @@ async def forward_file_request(
     async with httpx.AsyncClient() as client:
         files = {"file": file_tuple}
         response = await client.post(
-            f"{settings.scribe_service_url}/{endpoint}/{model}/.zip", 
+            f"{settings.scribe_service_url}/{endpoint}/{model}", 
             files=files, 
             timeout=timeout
         )
@@ -54,7 +54,7 @@ async def forward_json_request(
     """
     async with httpx.AsyncClient() as client:
         response = await client.post(
-            f"{settings.scribe_service_url}/{endpoint}/{model}/.zip", 
+            f"{settings.scribe_service_url}/{endpoint}/{model}", 
             json=data, 
             timeout=timeout
         )

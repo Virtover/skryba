@@ -20,13 +20,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.post("/scribe-file/{model}/.zip") # tiny, small, base, medium, large, large-v2, large-v3
+@app.post("/scribe-file/{model}") # tiny, small, base, medium, large, large-v2, large-v3
 async def scribe_file(model: str, file: UploadFile):
     file_content = await file.read()
     file_tuple = (file.filename, file_content, file.content_type)
     return await forward_file_request(model, "scribe-file", file_tuple)
 
 
-@app.post("/scribe-url/{model}/.zip") # tiny, small, base, medium, large, large-v2, large-v3
+@app.post("/scribe-url/{model}") # tiny, small, base, medium, large, large-v2, large-v3
 async def scribe_url(model: str, data: Dict[str, Any]):
     return await forward_json_request(model, "scribe-url", data)
