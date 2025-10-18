@@ -21,7 +21,7 @@ from app.database import async_session
 from app.utils import (
     create_file_record, 
     create_output_directory, 
-    run_transcription, 
+    scribe, 
     create_zip_archive,
     save_uploaded_file,
     cleanup_resources,
@@ -76,7 +76,7 @@ async def scribe_file(
     # Save uploaded file and run transcription
     file_content = await file.read()
     file_path = save_uploaded_file(file_content, file.filename, output_dir)
-    run_transcription(file_path, output_dir, model)
+    scribe(file_path, output_dir, model)
 
     # Delete the uploaded file before zipping
     delete_file_safely(file_path)
@@ -106,7 +106,7 @@ async def scribe_url(
     output_dir = create_output_directory(new_file.id, FILES_DIR)
     
     # Run transcription on URL
-    run_transcription(data.url, output_dir, model)
+    scribe(data.url, output_dir, model)
     
     # Create and return zip file
     zip_filename = f"skryba-{new_file.id}_results"

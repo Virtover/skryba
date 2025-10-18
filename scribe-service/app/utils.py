@@ -25,7 +25,7 @@ def create_output_directory(file_id: int, base_dir: str = "/skrybafiles") -> str
     return output_dir
 
 
-def run_transcription(
+def scribe(
     url_or_file: str, 
     output_dir: str, 
     model: str, 
