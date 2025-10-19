@@ -26,11 +26,9 @@ from app.utils import (
     enable_tf32
 )
 from fastapi import UploadFile
-from textsum.summarize import Summarizer
 
 FILES_DIR = "/skrybafiles"
 enable_tf32()
-summarizer = Summarizer()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -62,7 +60,7 @@ async def scribe_file(
 
     file_content = await file.read()
     file_path = save_uploaded_file(file_content, file.filename, output_dir)
-    scribe(file_path, output_dir, model, summarizer, new_file.id)
+    scribe(file_path, output_dir, model, new_file.id)
 
     delete_file_safely(file_path)
     zip_filename = f"skryba-{new_file.id}_results"
@@ -85,7 +83,7 @@ async def scribe_url(
 ):
     new_file = await create_file_record(db)
     output_dir = create_output_directory(new_file.id, FILES_DIR)
-    scribe(data.url, output_dir, model, summarizer, new_file.id)
+    scribe(data.url, output_dir, model, new_file.id)
 
     zip_filename = f"skryba-{new_file.id}_results"
     zip_path = create_zip_archive(output_dir, zip_filename)

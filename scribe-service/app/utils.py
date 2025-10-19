@@ -10,6 +10,7 @@ from transcribe_anything import transcribe
 from textsum.summarize import Summarizer
 import torch
 
+summarizer = Summarizer(model_name_or_path='pszemraj/long-t5-tglobal-xl-16384-book-summary')
 
 def enable_tf32():
     """Enable TF32 precision for matmul and cudnn (for Ampere+ GPUs)."""
@@ -41,7 +42,6 @@ def scribe(
     url_or_file: str, 
     output_dir: str, 
     model: str, 
-    summarizer: Summarizer,
     file_id: int,
     task: str = "transcribe",
 ) -> None:
@@ -55,8 +55,8 @@ def scribe(
         # hugging_face_token=settings.hf_token if settings.hf_token != "None" else None, #poor speaker diarization
         other_args=["--batch-size", "16"]  # "--flash", "True"
     )
-    out_path = f"{output_dir}/out{file_id}.srt"
-    os.rename(f"{output_dir}/out.srt", out_path)
+    out_path = f"{output_dir}/out{file_id}.txt"
+    os.rename(f"{output_dir}/out.txt", out_path)
     summary_path = summarizer.summarize_file(out_path)
     shutil.move(summary_path, f"{output_dir}/summary.txt")
 
