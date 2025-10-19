@@ -1,5 +1,4 @@
 import os
-import torch
 from app.database import init_models
 from app.dependencies import get_session
 from app.models import File
@@ -10,11 +9,9 @@ from fastapi import (
     Depends, 
     UploadFile
 )
-from typing import Optional
+from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, FileResponse
-import zipfile
-import tempfile
 from sqlalchemy import select, update, cast, Date, union, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import async_session
@@ -25,24 +22,26 @@ from app.utils import (
     create_zip_archive,
     save_uploaded_file,
     cleanup_resources,
-    delete_file_safely
+    delete_file_safely,
+    enable_tf32
 )
-import os
 from fastapi import UploadFile
+from textsum.summarize import Summarizer
 
+FILES_DIR = "/skrybafiles"
+enable_tf32()
+summarizer = Summarizer()
 
-# Enable TF32 for matmul and cudnn (Ampere+ GPUs)
-torch.backends.cuda.matmul.allow_tf32 = True
-torch.backends.cudnn.allow_tf32 = True
-try:
-    torch.set_float32_matmul_precision('high')
-except AttributeError:
-    pass  # Older torch versions may not have this
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await init_models()
+    async with async_session() as db:
+        await db.execute(delete(File))
+        await db.commit()
+    os.makedirs(FILES_DIR, exist_ok=True)
+    yield
 
-
-app = FastAPI()
-
-
+app = FastAPI(lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -51,17 +50,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-FILES_DIR = "/skrybafiles"
-
-@app.on_event("startup")
-async def on_startup():
-    await init_models()
-    async with async_session() as db:
-        await db.execute(delete(File))
-        await db.commit()
-    os.makedirs(FILES_DIR, exist_ok=True)
-
-
 @app.post("/scribe-file/{model}")
 async def scribe_file(
     model: str, 
@@ -69,24 +57,18 @@ async def scribe_file(
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_session)
 ):
-    # Create database record and output directory
     new_file = await create_file_record(db)
     output_dir = create_output_directory(new_file.id, FILES_DIR)
-    
-    # Save uploaded file and run transcription
+
     file_content = await file.read()
     file_path = save_uploaded_file(file_content, file.filename, output_dir)
-    scribe(file_path, output_dir, model)
+    scribe(file_path, output_dir, model, summarizer, new_file.id)
 
-    # Delete the uploaded file before zipping
     delete_file_safely(file_path)
-
-    # Create and return zip file
     zip_filename = f"skryba-{new_file.id}_results"
     zip_path = create_zip_archive(output_dir, zip_filename)
 
     background_tasks.add_task(cleanup_resources, new_file.id, output_dir, db)
-
     return FileResponse(
         path=zip_path,
         filename=f"{zip_filename}.zip",
@@ -101,19 +83,14 @@ async def scribe_url(
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_session)
 ):
-    # Create database record and output directory
     new_file = await create_file_record(db)
     output_dir = create_output_directory(new_file.id, FILES_DIR)
-    
-    # Run transcription on URL
-    scribe(data.url, output_dir, model)
-    
-    # Create and return zip file
+    scribe(data.url, output_dir, model, summarizer, new_file.id)
+
     zip_filename = f"skryba-{new_file.id}_results"
     zip_path = create_zip_archive(output_dir, zip_filename)
 
     background_tasks.add_task(cleanup_resources, new_file.id, output_dir, db)
-    
     return FileResponse(
         path=zip_path,
         filename=f"{zip_filename}.zip",

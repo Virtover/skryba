@@ -5,8 +5,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import delete
 from app.models import File
 from app.dependencies import get_session
-from transcribe_anything import transcribe
 from app.config import settings
+from transcribe_anything import transcribe
+from textsum.summarize import Summarizer
+import torch
+
+
+def enable_tf32():
+    """Enable TF32 precision for matmul and cudnn (for Ampere+ GPUs)."""
+    torch.backends.cuda.matmul.allow_tf32 = True
+    torch.backends.cudnn.allow_tf32 = True
+    try:
+        torch.set_float32_matmul_precision('high')
+    except AttributeError:
+        pass
 
 
 async def create_file_record(db: AsyncSession) -> File:
@@ -29,18 +41,24 @@ def scribe(
     url_or_file: str, 
     output_dir: str, 
     model: str, 
-    task: str = "transcribe"
+    summarizer: Summarizer,
+    file_id: int,
+    task: str = "transcribe",
 ) -> None:
-    """Run transcribe-anything with the given parameters."""
+    """Scribe with the given parameters."""
     transcribe(
         url_or_file=url_or_file,
         output_dir=output_dir,
         task=task,
         model=model,
         device=settings.device,
-        hugging_face_token=settings.hf_token if settings.hf_token != "None" else None,
+        # hugging_face_token=settings.hf_token if settings.hf_token != "None" else None, #poor speaker diarization
         other_args=["--batch-size", "16"]  # "--flash", "True"
     )
+    out_path = f"{output_dir}/out{file_id}.srt"
+    os.rename(f"{output_dir}/out.srt", out_path)
+    summary_path = summarizer.summarize_file(out_path)
+    shutil.move(summary_path, f"{output_dir}/summary.txt")
 
 
 def create_zip_archive(output_dir: str, zip_filename: str) -> str:
