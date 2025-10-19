@@ -10,7 +10,8 @@ from transcribe_anything import transcribe
 from textsum.summarize import Summarizer
 import torch
 
-summarizer = Summarizer(model_name_or_path='pszemraj/long-t5-tglobal-xl-16384-book-summary')
+summarizer = Summarizer(model_name_or_path='pszemraj/long-t5-tglobal-base-16384-book-summary')
+# pszemraj/long-t5-tglobal-xl-16384-book-summary is too large for available memory
 
 def enable_tf32():
     """Enable TF32 precision for matmul and cudnn (for Ampere+ GPUs)."""
