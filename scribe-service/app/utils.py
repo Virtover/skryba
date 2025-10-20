@@ -59,7 +59,7 @@ def scribe(
     )
     file_path = f"{output_dir}/out.txt"
     summarizer_task = "make a detailed academic summary, in original language:\n"
-    response = summarizer(summarizer_task + open(file_path, "r").read())
+    response = summarizer(summarizer_task + open(file_path, "r").read(), max_new_tokens=8192)
     with open(f"{output_dir}/summary.txt", "w") as f:
         f.write(response[0]['generated_text'])
 
