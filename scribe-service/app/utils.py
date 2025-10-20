@@ -58,7 +58,7 @@ def scribe(
         other_args=["--batch-size", "16"]  # "--flash", "True"
     )
     file_path = f"{output_dir}/out.txt"
-    summarizer_task = "take notes from text, in language in which it is written\n"
+    summarizer_task = "make a detailed academic summary, in language in which text below is written:\n"
     response = summarizer(summarizer_task + open(file_path, "r").read(), max_new_tokens=1024)
     with open(f"{output_dir}/summary.txt", "w") as f:
         f.write(response[0]['generated_text'])
