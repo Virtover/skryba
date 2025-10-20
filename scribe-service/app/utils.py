@@ -7,11 +7,15 @@ from app.models import File
 from app.dependencies import get_session
 from app.config import settings
 from transcribe_anything import transcribe
-from textsum.summarize import Summarizer
 import torch
+from transformers import pipeline
 
-summarizer = Summarizer(model_name_or_path='pszemraj/long-t5-tglobal-base-16384-book-summary') # weak model for pl, to change
-# pszemraj/long-t5-tglobal-xl-16384-book-summary is too large for available memory
+summarizer = pipeline(
+    "text-generation", 
+    model="meta-llama/Llama-3.2-1B", 
+    dtype=torch.bfloat16, 
+    device_map="auto"
+)
 
 def enable_tf32():
     """Enable TF32 precision for matmul and cudnn (for Ampere+ GPUs)."""
@@ -42,24 +46,23 @@ def create_output_directory(file_id: int, base_dir: str = "/skrybafiles") -> str
 def scribe(
     url_or_file: str, 
     output_dir: str, 
-    model: str, 
-    file_id: int,
-    task: str = "transcribe",
 ) -> None:
     """Scribe with the given parameters."""
     transcribe(
         url_or_file=url_or_file,
         output_dir=output_dir,
-        task=task,
-        model=model,
+        task="transcribe",
+        model="large-v3",
         device=settings.device,
         # hugging_face_token=settings.hf_token if settings.hf_token != "None" else None, #poor speaker diarization
         other_args=["--batch-size", "16"]  # "--flash", "True"
     )
-    out_path = f"{output_dir}/out{file_id}.txt"
-    os.rename(f"{output_dir}/out.txt", out_path)
-    summary_path = summarizer.summarize_file(out_path)
-    shutil.move(summary_path, f"{output_dir}/summary.txt")
+    file_path = f"{output_dir}/out.txt"
+    summarizer_task = "take notes from text, in language in which it is written\n"
+    response = summarizer(summarizer_task + open(file_path, "r").read(), max_new_tokens=500)
+    print(response)
+    with open(f"{output_dir}/summary.txt", "w") as f:
+        f.write(response[0]['generated_text'])
 
 
 def create_zip_archive(output_dir: str, zip_filename: str) -> str:

@@ -6,7 +6,6 @@ from typing import Dict, Any, Union
 
 
 async def forward_file_request(
-    model: str,
     endpoint: str,
     file_tuple: tuple,
     timeout: Union[int, None] = None
@@ -14,7 +13,6 @@ async def forward_file_request(
     """Forward a file upload request to the scribe service and stream the response.
     
     Args:
-        model: The model name (e.g., 'large-v3')
         endpoint: The endpoint path (e.g., 'scribe-file')
         file_tuple: Tuple of (filename, content, content_type)
         timeout: Request timeout in seconds
@@ -25,7 +23,7 @@ async def forward_file_request(
     async with httpx.AsyncClient() as client:
         files = {"file": file_tuple}
         response = await client.post(
-            f"{settings.scribe_service_url}/{endpoint}/{model}", 
+            f"{settings.scribe_service_url}/{endpoint}", 
             files=files, 
             timeout=timeout
         )
