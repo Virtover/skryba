@@ -70,8 +70,12 @@ def scribe(
     )
     text = open(f"{output_dir}/out.txt", "r").read()
     adjusted_text = f"<text>{text}</text>"
+    chunk_size = 3000
+    chunks = [adjusted_text[i:i+chunk_size] for i in range(0, len(adjusted_text), chunk_size)]
+    summaries = summarizer(chunks)
+    summaries = ["#" + summary['summary_text'].split("#", 1)[1] for summary in summaries]
     warning = "WARNING: Automatic transcription may contain errors because of translating between languages.\n\n"
-    summary = warning + summarizer(adjusted_text)[0]['summary_text']
+    summary = warning + "\n\n".join(summaries)
     # if summary_lang != "en":
     #     encoded = tt_tokenizer(summary, return_tensors="pt")
     #     print(encoded)
@@ -82,13 +86,6 @@ def scribe(
     
     with open(summary_path, "w") as f:
         f.write(summary)
-    # chunk_size = 3000
-    # chunks = [adjusted_text[i:i+chunk_size] for i in range(0, len(adjusted_text), chunk_size)]
-    # summaries = summarizer(chunks)
-    # summaries = [summary['summary_text'] for summary in summaries]
-    # summary = "\n".join(summaries)
-    # with open(f"{output_dir}/summary_en.md", "w") as f:
-    #     f.write(summary)
 
     return summary_path
 
