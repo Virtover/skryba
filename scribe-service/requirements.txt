@@ -42,4 +42,4 @@ pika==1.3.2
 pytz==2025.2
 transcribe-anything==3.2.4
 python-multipart==0.0.20
-transformers[torch] >= 4.43.0
+transformers[torch]==4.57.1

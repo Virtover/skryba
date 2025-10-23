@@ -11,8 +11,8 @@ import torch
 from transformers import pipeline
 
 summarizer = pipeline(
-    "text-generation", 
-    model="meta-llama/Llama-3.2-1B", 
+    "summarization", 
+    model="google-t5/t5-3b", 
     dtype=torch.bfloat16, 
     device_map="auto"
 )
@@ -51,17 +51,20 @@ def scribe(
     transcribe(
         url_or_file=url_or_file,
         output_dir=output_dir,
-        task="transcribe",
+        task="translate",
+        language="en",
         model="large-v3",
         device=settings.device,
         # hugging_face_token=settings.hf_token if settings.hf_token != "None" else None, #poor speaker diarization
         other_args=["--batch-size", "16"]  # "--flash", "True"
     )
-    file_path = f"{output_dir}/out.txt"
-    summarizer_task = "make a detailed academic summary, in original language:\n"
-    response = summarizer(summarizer_task + open(file_path, "r").read(), max_new_tokens=8192)
+    text = open(f"{output_dir}/out.txt", "r").read()
+    chunk_size = 3000
+    chunks = [text[i:i+chunk_size] for i in range(0, len(text), chunk_size)]
+    summaries = summarizer(chunks, min_length=40, max_length=120)
+    summaries = [summary['summary_text'] for summary in summaries]
     with open(f"{output_dir}/summary.txt", "w") as f:
-        f.write(response[0]['generated_text'])
+        f.write("\n".join(summaries))
 
 
 def create_zip_archive(output_dir: str, zip_filename: str) -> str:
