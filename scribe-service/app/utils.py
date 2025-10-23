@@ -12,7 +12,7 @@ from transformers import pipeline
 
 summarizer = pipeline(
     "summarization", 
-    model="google-t5/t5-3b", 
+    model="agentlans/granite-3.3-2b-notetaker", 
     dtype=torch.bfloat16, 
     device_map="auto"
 )
@@ -59,11 +59,12 @@ def scribe(
         other_args=["--batch-size", "16"]  # "--flash", "True"
     )
     text = open(f"{output_dir}/out.txt", "r").read()
+    adjusted_text = f"<text>{text}</text>"
     chunk_size = 3000
-    chunks = [text[i:i+chunk_size] for i in range(0, len(text), chunk_size)]
-    summaries = summarizer(chunks, min_length=40, max_length=120)
+    chunks = [adjusted_text[i:i+chunk_size] for i in range(0, len(adjusted_text), chunk_size)]
+    summaries = summarizer(chunks)
     summaries = [summary['summary_text'] for summary in summaries]
-    with open(f"{output_dir}/summary.txt", "w") as f:
+    with open(f"{output_dir}/summary.md", "w") as f:
         f.write("\n".join(summaries))
 
 
