@@ -48,8 +48,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.post("/scribe-file")
+@app.post("/scribe-file/{language}")
 async def scribe_file(
+    language: str,
     file: UploadFile, 
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_session)
@@ -59,7 +60,7 @@ async def scribe_file(
 
     file_content = await file.read()
     file_path = save_uploaded_file(file_content, file.filename, output_dir)
-    scribe(file_path, output_dir)
+    scribe(file_path, output_dir, summary_lang=language)
 
     delete_file_safely(file_path)
     zip_filename = f"skryba-{new_file.id}_results"
@@ -73,15 +74,16 @@ async def scribe_file(
     )
 
 
-@app.post("/scribe-url")
+@app.post("/scribe-url/{language}")
 async def scribe_url(
+    language: str,
     data: ScribeUrlInput, 
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_session)
 ):
     new_file = await create_file_record(db)
     output_dir = create_output_directory(new_file.id, FILES_DIR)
-    scribe(data.url, output_dir)
+    scribe(data.url, output_dir, summary_lang=language)
 
     zip_filename = f"skryba-{new_file.id}_results"
     zip_path = create_zip_archive(output_dir, zip_filename)

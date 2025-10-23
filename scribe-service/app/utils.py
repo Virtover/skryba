@@ -8,7 +8,7 @@ from app.dependencies import get_session
 from app.config import settings
 from transcribe_anything import transcribe
 import torch
-from transformers import pipeline
+from transformers import pipeline, M2M100ForConditionalGeneration, M2M100Tokenizer
 
 summarizer = pipeline(
     "summarization", 
@@ -16,6 +16,10 @@ summarizer = pipeline(
     dtype=torch.bfloat16, 
     device_map="auto"
 )
+
+text_translator = M2M100ForConditionalGeneration.from_pretrained("facebook/m2m100_418M")
+tt_tokenizer = M2M100Tokenizer.from_pretrained("facebook/m2m100_418M")
+tt_tokenizer.src_lang = "en"
 
 def enable_tf32():
     """Enable TF32 precision for matmul and cudnn (for Ampere+ GPUs)."""
@@ -46,8 +50,14 @@ def create_output_directory(file_id: int, base_dir: str = "/skrybafiles") -> str
 def scribe(
     url_or_file: str, 
     output_dir: str, 
-) -> None:
-    """Scribe with the given parameters."""
+    summary_lang: str = "en"
+) -> str:
+    """Scribe with the given parameters.
+    
+    Returns:
+        Path to the summary file
+    """
+    summary_path = f"{output_dir}/summary_{summary_lang}.md"
     transcribe(
         url_or_file=url_or_file,
         output_dir=output_dir,
@@ -60,12 +70,23 @@ def scribe(
     )
     text = open(f"{output_dir}/out.txt", "r").read()
     adjusted_text = f"<text>{text}</text>"
-    chunk_size = 3000
-    chunks = [adjusted_text[i:i+chunk_size] for i in range(0, len(adjusted_text), chunk_size)]
-    summaries = summarizer(chunks)
-    summaries = [summary['summary_text'] for summary in summaries]
-    with open(f"{output_dir}/summary.md", "w") as f:
-        f.write("\n".join(summaries))
+    warning = "WARNING: Automatic transcription may contain errors because of translating between languages.\n\n"
+    summary = warning + summarizer(adjusted_text)[0]['summary_text']
+    if summary_lang != "en":
+        encoded = tt_tokenizer(summary, return_tensors="pt")
+        generated_tokens = text_translator.generate(**encoded, forced_bos_token_id=tt_tokenizer.get_lang_id(summary_lang))
+        summary = tt_tokenizer.batch_decode(generated_tokens, skip_special_tokens=True)
+    with open(summary_path, "w") as f:
+        f.write(summary)
+    # chunk_size = 3000
+    # chunks = [adjusted_text[i:i+chunk_size] for i in range(0, len(adjusted_text), chunk_size)]
+    # summaries = summarizer(chunks)
+    # summaries = [summary['summary_text'] for summary in summaries]
+    # summary = "\n".join(summaries)
+    # with open(f"{output_dir}/summary_en.md", "w") as f:
+    #     f.write(summary)
+
+    return summary_path
 
 
 def create_zip_archive(output_dir: str, zip_filename: str) -> str:
