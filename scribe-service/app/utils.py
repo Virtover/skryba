@@ -74,7 +74,7 @@ def scribe(
     chunks = [adjusted_text[i:i+chunk_size] for i in range(0, len(adjusted_text), chunk_size)]
     summaries = summarizer(chunks)
     summaries = ["##" + summary['summary_text'].split("##", 1)[1] for summary in summaries]
-    warning = "WARNING: Automatic transcription may contain errors because of translating between languages.\n\n"
+    warning = "WARNING: There may be errors because of translating between languages.\n\n"
     summary = warning + "# Study Notes\n\n" + "\n\n".join(summaries)
     # if summary_lang != "en":
     #     encoded = tt_tokenizer(summary, return_tensors="pt")
