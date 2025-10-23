@@ -72,10 +72,14 @@ def scribe(
     adjusted_text = f"<text>{text}</text>"
     warning = "WARNING: Automatic transcription may contain errors because of translating between languages.\n\n"
     summary = warning + summarizer(adjusted_text)[0]['summary_text']
-    if summary_lang != "en":
-        encoded = tt_tokenizer(summary, return_tensors="pt")
-        generated_tokens = text_translator.generate(**encoded, forced_bos_token_id=tt_tokenizer.get_lang_id(summary_lang))
-        summary = tt_tokenizer.batch_decode(generated_tokens, skip_special_tokens=True)
+    # if summary_lang != "en":
+    #     encoded = tt_tokenizer(summary, return_tensors="pt")
+    #     print(encoded)
+    #     generated_tokens = text_translator.generate(**encoded, forced_bos_token_id=tt_tokenizer.get_lang_id(summary_lang))
+    #     summary = tt_tokenizer.batch_decode(generated_tokens, skip_special_tokens=True)
+    #     print(summary)
+    #     summary = summary[0]
+    
     with open(summary_path, "w") as f:
         f.write(summary)
     # chunk_size = 3000
