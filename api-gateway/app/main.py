@@ -20,13 +20,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.post("/scribe-file/{language}") # en, pl, ...
-async def scribe_file(language: str, file: UploadFile):
+@app.post("/scribe-file/{summary_lang}")
+async def scribe_file(summary_lang: str, file: UploadFile):
     file_content = await file.read()
     file_tuple = (file.filename, file_content, file.content_type)
-    return await forward_file_request("scribe-file", language, file_tuple)
+    return await forward_file_request("scribe-file", summary_lang, file_tuple)
 
 
-@app.post("/scribe-url/{language}") # tiny, small, base, medium, large, large-v2, large-v3
-async def scribe_url(language: str, data: Dict[str, Any]):
-    return await forward_json_request("scribe-url", language, data)
+@app.post("/scribe-url/{summary_lang}")
+async def scribe_url(summary_lang: str, data: Dict[str, Any]):
+    return await forward_json_request("scribe-url", summary_lang, data)

@@ -7,7 +7,7 @@ from typing import Dict, Any, Union
 
 async def forward_file_request(
     endpoint: str,
-    language: str,
+    summary_lang: str,
     file_tuple: tuple,
     timeout: Union[int, None] = None
 ) -> StreamingResponse:
@@ -24,7 +24,7 @@ async def forward_file_request(
     async with httpx.AsyncClient() as client:
         files = {"file": file_tuple}
         response = await client.post(
-            f"{settings.scribe_service_url}/{endpoint}/{language}", 
+            f"{settings.scribe_service_url}/{endpoint}/{summary_lang}", 
             files=files, 
             timeout=timeout
         )
@@ -36,7 +36,7 @@ async def forward_file_request(
 
 async def forward_json_request(
     endpoint: str,
-    language: str,
+    summary_lang: str,
     data: Dict[str, Any],
     timeout: Union[int, None] = None
 ) -> StreamingResponse:
@@ -53,7 +53,7 @@ async def forward_json_request(
     """
     async with httpx.AsyncClient() as client:
         response = await client.post(
-            f"{settings.scribe_service_url}/{endpoint}/{language}", 
+            f"{settings.scribe_service_url}/{endpoint}/{summary_lang}",
             json=data, 
             timeout=timeout
         )

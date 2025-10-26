@@ -7,8 +7,10 @@ from app.models import File
 from app.dependencies import get_session
 from app.config import settings
 from transcribe_anything import transcribe
+import threading
 import torch
-from transformers import pipeline, M2M100ForConditionalGeneration, M2M100Tokenizer
+from transformers import pipeline, MBartForConditionalGeneration, MBart50TokenizerFast
+from app.lang_codes import to_mbart50
 
 summarizer = pipeline(
     "summarization", 
@@ -17,9 +19,14 @@ summarizer = pipeline(
     device_map="auto"
 )
 
-text_translator = M2M100ForConditionalGeneration.from_pretrained("facebook/m2m100_418M")
-tt_tokenizer = M2M100Tokenizer.from_pretrained("facebook/m2m100_418M")
-tt_tokenizer.src_lang = "en"
+lang_classifier = pipeline(
+    "text-classification", 
+    model="papluca/xlm-roberta-base-language-detection"
+)
+
+translator = MBartForConditionalGeneration.from_pretrained("facebook/mbart-large-50-many-to-many-mmt")
+tt_tokenizer = MBart50TokenizerFast.from_pretrained("facebook/mbart-large-50-many-to-many-mmt")
+tt_tokenizer_lock = threading.Lock()
 
 def enable_tf32():
     """Enable TF32 precision for matmul and cudnn (for Ampere+ GPUs)."""
@@ -47,47 +54,56 @@ def create_output_directory(file_id: int, base_dir: str = "/skrybafiles") -> str
     return output_dir
 
 
+def translate_text(text: str, src_lang: str, tgt_lang: str) -> str:
+    """Translate text from source language to target language."""
+    with tt_tokenizer_lock:
+        tt_tokenizer.src_lang = src_lang
+        encoded = tt_tokenizer(text, return_tensors="pt")
+    generated_tokens = translator.generate(
+        **encoded,
+        forced_bos_token_id=tt_tokenizer.lang_code_to_id[tgt_lang]
+    )
+    translated_text = tt_tokenizer.batch_decode(generated_tokens, skip_special_tokens=True)
+    return translated_text[0]
+
+
 def scribe(
     url_or_file: str, 
-    output_dir: str, 
-    summary_lang: str = "en"
-) -> str:
+    output_dir: str,
+    summary_lang: str = "en_XX"
+) -> None:
     """Scribe with the given parameters.
     
     Returns:
         Path to the summary file
     """
-    summary_path = f"{output_dir}/summary_{summary_lang}.md"
     transcribe(
         url_or_file=url_or_file,
         output_dir=output_dir,
-        task="translate",
-        language="en",
+        task="transcribe",
         model="large-v3",
         device=settings.device,
         # hugging_face_token=settings.hf_token if settings.hf_token != "None" else None, #poor speaker diarization
         other_args=["--batch-size", "16"]  # "--flash", "True"
     )
     text = open(f"{output_dir}/out.txt", "r").read()
-    adjusted_text = f"<text>{text}</text>"
+    src_code, std_code = to_mbart50(lang_classifier(text)[0]['label']), to_mbart50("en_XX")
+    text_en = translate_text(text, src_lang=src_code, tgt_lang=std_code) if src_code != std_code else text
+    adjusted_text = f"<text>{text_en}</text>"
     chunk_size = 3000
     chunks = [adjusted_text[i:i+chunk_size] for i in range(0, len(adjusted_text), chunk_size)]
     summaries = summarizer(chunks)
     summaries = ["##" + summary['summary_text'].split("##", 1)[1] for summary in summaries]
-    warning = "WARNING: There may be errors because of translating between languages.\n\n"
-    summary = warning + "# Study Notes\n\n" + "\n\n".join(summaries)
-    # if summary_lang != "en":
-    #     encoded = tt_tokenizer(summary, return_tensors="pt")
-    #     print(encoded)
-    #     generated_tokens = text_translator.generate(**encoded, forced_bos_token_id=tt_tokenizer.get_lang_id(summary_lang))
-    #     summary = tt_tokenizer.batch_decode(generated_tokens, skip_special_tokens=True)
-    #     print(summary)
-    #     summary = summary[0]
+    summary = "# Notes\n\n" + "\n\n".join(summaries)
     
-    with open(summary_path, "w") as f:
-        f.write(summary)
+    summary_lang_code = to_mbart50(summary_lang)
+    if summary_lang_code != std_code:
+        translated_summary = translate_text(summary, src_lang=std_code, tgt_lang=summary_lang_code)
+        with open(f"{output_dir}/summary_{summary_lang_code}.md", "w") as f:
+            f.write(translated_summary)
 
-    return summary_path
+    with open(f"{output_dir}/summary.md", "w") as f:
+        f.write(summary)
 
 
 def create_zip_archive(output_dir: str, zip_filename: str) -> str:

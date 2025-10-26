@@ -48,19 +48,19 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.post("/scribe-file/{language}")
+@app.post("/scribe-file/{summary_lang}")
 async def scribe_file(
-    language: str,
+    summary_lang: str,
     file: UploadFile, 
     background_tasks: BackgroundTasks,
-    db: AsyncSession = Depends(get_session)
+    db: AsyncSession = Depends(get_session),
 ):
     new_file = await create_file_record(db)
     output_dir = create_output_directory(new_file.id, FILES_DIR)
 
     file_content = await file.read()
     file_path = save_uploaded_file(file_content, file.filename, output_dir)
-    scribe(file_path, output_dir, summary_lang=language)
+    scribe(file_path, output_dir, summary_lang=summary_lang)
 
     delete_file_safely(file_path)
     zip_filename = f"skryba-{new_file.id}_results"
@@ -74,16 +74,16 @@ async def scribe_file(
     )
 
 
-@app.post("/scribe-url/{language}")
+@app.post("/scribe-url/{summary_lang}")
 async def scribe_url(
-    language: str,
+    summary_lang: str,
     data: ScribeUrlInput, 
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_session)
 ):
     new_file = await create_file_record(db)
     output_dir = create_output_directory(new_file.id, FILES_DIR)
-    scribe(data.url, output_dir, summary_lang=language)
+    scribe(data.url, output_dir, summary_lang=summary_lang)
 
     zip_filename = f"skryba-{new_file.id}_results"
     zip_path = create_zip_archive(output_dir, zip_filename)
