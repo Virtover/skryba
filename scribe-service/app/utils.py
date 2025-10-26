@@ -80,7 +80,8 @@ def translate_text(text: str, src_lang: str, tgt_lang: str, chunk_tokens: int = 
             generated_tokens = translator.generate(
                 input_ids=chunk_ids,
                 attention_mask=chunk_mask,
-                forced_bos_token_id=tt_tokenizer.lang_code_to_id[tgt_lang]
+                forced_bos_token_id=tt_tokenizer.lang_code_to_id[tgt_lang],
+                max_new_tokens=300
             )
             decoded = tt_tokenizer.batch_decode(generated_tokens, skip_special_tokens=True)
             outputs.append(decoded[0])
@@ -114,7 +115,7 @@ def scribe(
     chunk_size = 3000
     chunks = [adjusted_text[i:i+chunk_size] for i in range(0, len(adjusted_text), chunk_size)]
     summaries = summarizer(chunks)
-    summaries = ["##" + summary['summary_text'].split("##", 1)[1] for summary in summaries]
+    summaries = ["##" + summary['summary_text'].split("##", 1)[-1] for summary in summaries]
     summary = "# Summary\n\n" + "\n\n".join(summaries)
     
     summary_lang_code = to_mbart50(summary_lang)
