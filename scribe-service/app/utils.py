@@ -54,17 +54,38 @@ def create_output_directory(file_id: int, base_dir: str = "/skrybafiles") -> str
     return output_dir
 
 
-def translate_text(text: str, src_lang: str, tgt_lang: str) -> str:
-    """Translate text from source language to target language."""
+def translate_text(text: str, src_lang: str, tgt_lang: str, chunk_tokens: int = 256) -> str:
+    """Translate text from source language to target language by chunking tokens.
+
+    Splits the tokenized input into chunks of size `chunk_tokens` and translates
+    each chunk independently to avoid hitting model token limits.
+    """
+    # Tokenize once under lock (tokenizer has mutable src_lang)
     with tt_tokenizer_lock:
         tt_tokenizer.src_lang = src_lang
-        encoded = tt_tokenizer(text, return_tensors="pt")
-    generated_tokens = translator.generate(
-        **encoded,
-        forced_bos_token_id=tt_tokenizer.lang_code_to_id[tgt_lang]
-    )
-    translated_text = tt_tokenizer.batch_decode(generated_tokens, skip_special_tokens=True)
-    return translated_text[0]
+        encoded = tt_tokenizer(text, return_tensors="pt", add_special_tokens=True)
+
+    input_ids = encoded["input_ids"].squeeze(0)
+    attention_mask = encoded["attention_mask"].squeeze(0)
+
+    seq_len = input_ids.size(0)
+    device = next(translator.parameters()).device if hasattr(translator, 'parameters') else torch.device('cpu')
+
+    outputs: list[str] = []
+    with torch.no_grad():
+        for start in range(0, seq_len, chunk_tokens):
+            end = min(start + chunk_tokens, seq_len)
+            chunk_ids = input_ids[start:end].unsqueeze(0).to(device)
+            chunk_mask = attention_mask[start:end].unsqueeze(0).to(device)
+            generated_tokens = translator.generate(
+                input_ids=chunk_ids,
+                attention_mask=chunk_mask,
+                forced_bos_token_id=tt_tokenizer.lang_code_to_id[tgt_lang]
+            )
+            decoded = tt_tokenizer.batch_decode(generated_tokens, skip_special_tokens=True)
+            outputs.append(decoded[0])
+
+    return " ".join(outputs)
 
 
 def scribe(
@@ -94,7 +115,7 @@ def scribe(
     chunks = [adjusted_text[i:i+chunk_size] for i in range(0, len(adjusted_text), chunk_size)]
     summaries = summarizer(chunks)
     summaries = ["##" + summary['summary_text'].split("##", 1)[1] for summary in summaries]
-    summary = "# Notes\n\n" + "\n\n".join(summaries)
+    summary = "# Summary\n\n" + "\n\n".join(summaries)
     
     summary_lang_code = to_mbart50(summary_lang)
     if summary_lang_code != std_code:
