@@ -109,7 +109,7 @@ def scribe(
         other_args=["--batch-size", "16"]  # "--flash", "True"
     )
     text = open(f"{output_dir}/out.txt", "r").read()
-    src_code, std_code = to_mbart50(lang_classifier(text)[0]['label']), to_mbart50("en_XX")
+    src_code, std_code = to_mbart50(lang_classifier(text[:300])[0]['label']), to_mbart50("en_XX")
     text_en = translate_text(text, src_lang=src_code, tgt_lang=std_code) if src_code != std_code else text
     adjusted_text = f"<text>{text_en}</text>"
     chunk_size = 3000
