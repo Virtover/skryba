@@ -111,11 +111,12 @@ def scribe(
     text = open(f"{output_dir}/out.txt", "r").read()
     src_code, std_code = to_mbart50(lang_classifier(text[:300])[0]['label']), to_mbart50("en_XX")
     text_en = translate_text(text, src_lang=src_code, tgt_lang=std_code) if src_code != std_code else text
-    chunk_size = 3072
-    chunks = [f"<text>{text_en[i:i+chunk_size]}</text>" for i in range(0, len(text_en), chunk_size)]
-    summaries = summarizer(chunks)
-    summaries = ["##" + summary['summary_text'].split("##", 1)[-1] for summary in summaries]
-    summary = "# Summary\n\n" + "\n\n".join(summaries)
+    # chunk_size = 3072
+    # chunks = [f"<text>{text_en[i:i+chunk_size]}</text>" for i in range(0, len(text_en), chunk_size)]
+    # summaries = summarizer(chunks)
+    # summaries = ["##" + summary['summary_text'].split("##", 1)[-1] for summary in summaries]
+    # summary = "# Summary\n\n" + "\n\n".join(summaries)
+    summary = summarizer(text_en, max_length=max(32, len(text_en) // 4), do_sample=False)[0]['summary_text']
     
     summary_lang_code = to_mbart50(summary_lang)
     if summary_lang_code != std_code:
