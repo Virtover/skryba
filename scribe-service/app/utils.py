@@ -111,9 +111,8 @@ def scribe(
     text = open(f"{output_dir}/out.txt", "r").read()
     src_code, std_code = to_mbart50(lang_classifier(text[:300])[0]['label']), to_mbart50("en_XX")
     text_en = translate_text(text, src_lang=src_code, tgt_lang=std_code) if src_code != std_code else text
-    adjusted_text = f"<text>{text_en}</text>"
     chunk_size = 3000
-    chunks = [adjusted_text[i:i+chunk_size] for i in range(0, len(adjusted_text), chunk_size)]
+    chunks = [f"<text>{text_en[i:i+chunk_size]}</text>" for i in range(0, len(text_en), chunk_size)]
     summaries = summarizer(chunks)
     summaries = ["##" + summary['summary_text'].split("##", 1)[-1] for summary in summaries]
     summary = "# Summary\n\n" + "\n\n".join(summaries)
