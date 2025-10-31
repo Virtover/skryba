@@ -1,4 +1,5 @@
 import os
+import re
 import zipfile
 import shutil
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,21 +13,21 @@ import torch
 from transformers import pipeline, MBartForConditionalGeneration, MBart50TokenizerFast
 from app.lang_codes import to_mbart50
 
-# summarizer = pipeline(
-#     "summarization", 
-#     model="agentlans/granite-3.3-2b-notetaker", 
-#     dtype=torch.bfloat16, 
-#     device_map="auto"
-# )
+summarizer = pipeline(
+    "summarization", 
+    model="google-t5/t5-large", 
+    dtype=torch.bfloat16, 
+    device_map="auto"
+)
 
-# lang_classifier = pipeline(
-#     "text-classification", 
-#     model="papluca/xlm-roberta-base-language-detection"
-# )
+lang_classifier = pipeline(
+    "text-classification", 
+    model="papluca/xlm-roberta-base-language-detection"
+)
 
-# translator = MBartForConditionalGeneration.from_pretrained("facebook/mbart-large-50-many-to-many-mmt")
-# tt_tokenizer = MBart50TokenizerFast.from_pretrained("facebook/mbart-large-50-many-to-many-mmt")
-# tt_tokenizer_lock = threading.Lock()
+translator = MBartForConditionalGeneration.from_pretrained("facebook/mbart-large-50-many-to-many-mmt")
+tt_tokenizer = MBart50TokenizerFast.from_pretrained("facebook/mbart-large-50-many-to-many-mmt")
+tt_tokenizer_lock = threading.Lock()
 
 def enable_tf32():
     """Enable TF32 precision for matmul and cudnn (for Ampere+ GPUs)."""
@@ -54,39 +55,65 @@ def create_output_directory(file_id: int, base_dir: str = "/skrybafiles") -> str
     return output_dir
 
 
-# def translate_text(text: str, src_lang: str, tgt_lang: str, chunk_tokens: int = 256) -> str:
-#     """Translate text from source language to target language by chunking tokens.
+def srt_group_chunks(
+    srt_path: str,
+    group_size: int = 10,
+) -> list[tuple[str, str]]:
+    """Group SRT entries into chunks of size `group_size`.
 
-#     Splits the tokenized input into chunks of size `chunk_tokens` and translates
-#     each chunk independently to avoid hitting model token limits.
-#     """
-#     # Tokenize once under lock (tokenizer has mutable src_lang)
-#     with tt_tokenizer_lock:
-#         tt_tokenizer.src_lang = src_lang
-#         encoded = tt_tokenizer(text, return_tensors="pt", add_special_tokens=True)
+    Returns:
+        List of (timestamp, text) tuples. Each timestamp is "start --> end"
+        from the first and last entries in the group. Text is concatenated
+        from all entries in the group.
+    """
+    if group_size <= 0:
+        raise ValueError("group_size must be positive")
 
-#     input_ids = encoded["input_ids"].squeeze(0)
-#     attention_mask = encoded["attention_mask"].squeeze(0)
+    # Split on blank lines to get SRT blocks
+    with open(srt_path, "r", encoding="utf-8") as f:
+        blocks = re.split(r"\r?\n\s*\r?\n", f.read().strip())
 
-#     seq_len = input_ids.size(0)
-#     device = next(translator.parameters()).device if hasattr(translator, 'parameters') else torch.device('cpu')
+    # Parse blocks into (start, end, text)
+    entries: list[tuple[str | None, str | None, str]] = []
+    for b in blocks:
+        lines = [ln for ln in b.splitlines() if ln is not None]
+        if len(lines) < 2:
+            continue
+        ts = lines[1].strip()
+        start = end = None
+        if "-->" in ts:
+            start, end = [p.strip() for p in ts.split("-->", 1)]
+        text = "\n".join(ln.rstrip() for ln in lines[2:] if ln.strip()).strip()
+        entries.append((start, end, text))
 
-#     outputs: list[str] = []
-#     with torch.no_grad():
-#         for start in range(0, seq_len, chunk_tokens):
-#             end = min(start + chunk_tokens, seq_len)
-#             chunk_ids = input_ids[start:end].unsqueeze(0).to(device)
-#             chunk_mask = attention_mask[start:end].unsqueeze(0).to(device)
-#             generated_tokens = translator.generate(
-#                 input_ids=chunk_ids,
-#                 attention_mask=chunk_mask,
-#                 forced_bos_token_id=tt_tokenizer.lang_code_to_id[tgt_lang],
-#                 max_new_tokens=300
-#             )
-#             decoded = tt_tokenizer.batch_decode(generated_tokens, skip_special_tokens=True)
-#             outputs.append(decoded[0])
+    # Group consecutive entries
+    chunks: list[tuple[str, str]] = []
+    for i in range(0, len(entries), group_size):
+        grp = entries[i:i + group_size]
+        if not grp:
+            continue
+        merged_text = "\n".join(t for _, _, t in grp if t)
+        s0, _, _ = grp[0]
+        _, eN, _ = grp[-1]
+        timestamp = f"{s0 or ''} --> {eN or ''}".strip()
+        chunks.append((timestamp, merged_text))
 
-#     return " ".join(outputs)
+    return chunks
+
+
+def translate_text(text: str, src_lang: str, tgt_lang: str) -> str:
+    """Translate text from source language to target language.
+    """
+    with tt_tokenizer_lock:
+        tt_tokenizer.src_lang = src_lang
+        encoded = tt_tokenizer(text, return_tensors="pt", add_special_tokens=True)
+    
+    generated_tokens = translator.generate(
+        **encoded,
+        forced_bos_token_id=tt_tokenizer.lang_code_to_id[tgt_lang]
+    )
+    decoded = tt_tokenizer.batch_decode(generated_tokens, skip_special_tokens=True)
+    return decoded[0]
 
 
 def scribe(
@@ -108,8 +135,27 @@ def scribe(
         # hugging_face_token=settings.hf_token if settings.hf_token != "None" else None, #poor speaker diarization
         other_args=["--batch-size", "16"]  # "--flash", "True"
     )
+    srt_chunks = srt_group_chunks(f"{output_dir}/out.srt", group_size=8)
+    if len(srt_chunks) == 0:
+        return
+    print(srt_chunks)
+    std_code = to_mbart50("en_XX")
+    src_code = to_mbart50(
+        lang_classifier(srt_chunks[0][1][:min(300, len(srt_chunks[0][1]))])[0]['label']
+    )
+    translated_chunks = [
+        (ts, translate_text(text, src_lang=src_code, tgt_lang=std_code) 
+         if src_code != std_code else text) for ts, text in srt_chunks
+    ]
+    print(translated_chunks)
+    summarized_chunks = summarizer([text for _, text in translated_chunks])
+    summarized_chunks = [
+        (ts, translate_text(summary['summary_text'], src_lang=std_code, tgt_lang=to_mbart50(summary_lang)))
+        for (ts, _), summary in zip(translated_chunks, summarized_chunks)
+    ]
+    print(summarized_chunks)
+
     # text = open(f"{output_dir}/out.txt", "r").read()
-    # src_code, std_code = to_mbart50(lang_classifier(text[:300])[0]['label']), to_mbart50("en_XX")
     # text_en = translate_text(text, src_lang=src_code, tgt_lang=std_code) if src_code != std_code else text
     # chunk_size = 2800
     # chunks = [
