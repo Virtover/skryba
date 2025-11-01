@@ -15,7 +15,7 @@ from app.lang_codes import to_mbart50
 
 summarizer = pipeline(
     "summarization", 
-    model="google-t5/t5-large", 
+    model="facebook/bart-large-cnn",
     dtype=torch.bfloat16, 
     device_map="auto"
 )
@@ -135,7 +135,7 @@ def scribe(
         # hugging_face_token=settings.hf_token if settings.hf_token != "None" else None, #poor speaker diarization
         other_args=["--batch-size", "16"]  # "--flash", "True"
     )
-    srt_chunks = srt_group_chunks(f"{output_dir}/out.srt", group_size=8)
+    srt_chunks = srt_group_chunks(f"{output_dir}/out.srt", group_size=16)
     if len(srt_chunks) == 0:
         return
     print(srt_chunks)
@@ -149,37 +149,20 @@ def scribe(
     ]
     print(translated_chunks)
     summarized_chunks = summarizer([text for _, text in translated_chunks])
+    print(summarized_chunks)
     summarized_chunks = [
         (ts, translate_text(summary['summary_text'], src_lang=std_code, tgt_lang=to_mbart50(summary_lang)))
         for (ts, _), summary in zip(translated_chunks, summarized_chunks)
     ]
     print(summarized_chunks)
 
-    # text = open(f"{output_dir}/out.txt", "r").read()
-    # text_en = translate_text(text, src_lang=src_code, tgt_lang=std_code) if src_code != std_code else text
-    # chunk_size = 2800
-    # chunks = [
-    #     f"<text>{text_en[i:min(i+chunk_size, len(text_en))]}</text>" 
-    #     for i in range(0, len(text_en), chunk_size)
-    # ]
-    # if len(chunks) > 1:
-    #     last_chunk_content = chunks[-1].replace("<text>", "").replace("</text>", "")
-    #     if len(last_chunk_content) < 200:
-    #         merged_content = chunks[-2].replace("</text>", "") + " " + last_chunk_content + "</text>"
-    #         chunks = chunks[:-2] + [merged_content]
-    
-    # summaries = summarizer(chunks)
-    # summaries = ["##" + summary['summary_text'].split("##", 1)[-1] for summary in summaries]
-    # summary = "# Summary\n\n" + "\n\n".join(summaries)
-    
-    # summary_lang_code = to_mbart50(summary_lang)
-    # if summary_lang_code != std_code:
-    #     translated_summary = translate_text(summary, src_lang=std_code, tgt_lang=summary_lang_code)
-    #     with open(f"{output_dir}/summary_{summary_lang_code}.md", "w") as f:
-    #         f.write(translated_summary)
+    with open(f"{output_dir}/out_grouped.srt", "w", encoding="utf-8") as f:
+        for i, (ts, text) in enumerate(srt_chunks, start=1):
+            f.write(f"{i}\n{ts}\n{text}\n\n")
 
-    # with open(f"{output_dir}/summary.md", "w") as f:
-    #     f.write(summary)
+    with open(f"{output_dir}/summary.srt", "w", encoding="utf-8") as f:
+        for i, (ts, text) in enumerate(summarized_chunks, start=1):
+            f.write(f"{i}\n{ts}\n{text}\n\n")
 
 
 def create_zip_archive(output_dir: str, zip_filename: str) -> str:
