@@ -152,6 +152,7 @@ def scribe(
     print(summarized_chunks)
     summarized_chunks = [
         (ts, translate_text(summary['summary_text'], src_lang=std_code, tgt_lang=to_mbart50(summary_lang)))
+        if std_code != to_mbart50(summary_lang) else (ts, summary['summary_text'])
         for (ts, _), summary in zip(translated_chunks, summarized_chunks)
     ]
     print(summarized_chunks)
