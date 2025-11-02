@@ -15,7 +15,7 @@ from app.lang_codes import to_mbart50
 
 summarizer = pipeline(
     "summarization", 
-    model="facebook/bart-large-cnn",
+    model="cnicu/t5-small-booksum",
     dtype=torch.bfloat16, 
     device_map="auto"
 )
@@ -135,7 +135,7 @@ def scribe(
         # hugging_face_token=settings.hf_token if settings.hf_token != "None" else None, #poor speaker diarization
         other_args=["--batch-size", "16"]  # "--flash", "True"
     )
-    srt_chunks = srt_group_chunks(f"{output_dir}/out.srt", group_size=16)
+    srt_chunks = srt_group_chunks(f"{output_dir}/out.srt", group_size=20)
     if len(srt_chunks) == 0:
         return
     print(srt_chunks)
