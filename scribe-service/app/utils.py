@@ -15,7 +15,7 @@ from app.lang_codes import to_mbart50
 
 summarizer = pipeline(
     "summarization", 
-    model="cnicu/t5-small-booksum",
+    model="pszemraj/pegasus-x-large-book_synthsumm",
     dtype=torch.bfloat16, 
     device_map="auto"
 )
@@ -92,7 +92,7 @@ def srt_group_chunks(
         grp = entries[i:i + group_size]
         if not grp:
             continue
-        merged_text = "\n".join(t for _, _, t in grp if t)
+        merged_text = " ".join(t for _, _, t in grp if t)
         s0, _, _ = grp[0]
         _, eN, _ = grp[-1]
         timestamp = f"{s0 or ''} --> {eN or ''}".strip()
