@@ -15,8 +15,7 @@ from app.lang_codes import to_mbart50
 
 summarizer = pipeline(
     "summarization", 
-    model="pszemraj/pegasus-x-large-book_synthsumm",
-    dtype=torch.bfloat16, 
+    model="agentlans/granite-3.3-2b-notetaker",
     device_map="auto"
 )
 
@@ -148,23 +147,19 @@ def scribe(
          if src_code != std_code else text) for ts, text in srt_chunks
     ]
     print(translated_chunks)
-    summarized_chunks = summarizer([text for _, text in translated_chunks])
-    print(summarized_chunks)
-    summarized_chunks = [
-        (ts, translate_text(summary['summary_text'], src_lang=std_code, tgt_lang=to_mbart50(summary_lang)))
-        if std_code != to_mbart50(summary_lang) else (ts, summary['summary_text'])
-        for (ts, _), summary in zip(translated_chunks, summarized_chunks)
-    ]
-    print(summarized_chunks)
+    summary = summarizer(
+        "<text>" + " ".join([text for _, text in translated_chunks]) + "</text>",
+        min_new_tokens=0,
+        max_new_tokens=16384,
+    )[0]['summary_text'].split("</text>", 1)[-1]
+    print(summary)
 
     with open(f"{output_dir}/out_grouped.srt", "w", encoding="utf-8") as f:
         for i, (ts, text) in enumerate(srt_chunks, start=1):
             f.write(f"{i}\n{ts}\n{text}\n\n")
 
-    with open(f"{output_dir}/summary.srt", "w", encoding="utf-8") as f:
-        for i, (ts, text) in enumerate(summarized_chunks, start=1):
-            f.write(f"{i}\n{ts}\n{text}\n\n")
-
+    with open(f"{output_dir}/summary_en.md", "w", encoding="utf-8") as f:
+        f.write(summary)
 
 def create_zip_archive(output_dir: str, zip_filename: str) -> str:
     """Create a zip archive of all files in the output directory.
