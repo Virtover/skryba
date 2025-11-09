@@ -38,22 +38,6 @@ def enable_tf32():
         pass
 
 
-async def create_file_record(db: AsyncSession) -> File:
-    """Create a new file record in the database and return it."""
-    new_file = File()
-    db.add(new_file)
-    await db.commit()
-    await db.refresh(new_file)
-    return new_file
-
-
-def create_output_directory(file_id: int, base_dir: str = "/skrybafiles") -> str:
-    """Create and return the output directory path for a file."""
-    output_dir = f"{base_dir}/{file_id}"
-    os.makedirs(output_dir, exist_ok=True)
-    return output_dir
-
-
 def srt_group_chunks(
     srt_path: str,
     group_size: int = 10,
@@ -160,6 +144,23 @@ def scribe(
 
     with open(f"{output_dir}/summary_en.md", "w", encoding="utf-8") as f:
         f.write(summary)
+
+
+async def create_file_record(db: AsyncSession) -> File:
+    """Create a new file record in the database and return it."""
+    new_file = File()
+    db.add(new_file)
+    await db.commit()
+    await db.refresh(new_file)
+    return new_file
+
+
+def create_output_directory(file_id: int, base_dir: str = "/skrybafiles") -> str:
+    """Create and return the output directory path for a file."""
+    output_dir = f"{base_dir}/{file_id}"
+    os.makedirs(output_dir, exist_ok=True)
+    return output_dir
+
 
 def create_zip_archive(output_dir: str, zip_filename: str) -> str:
     """Create a zip archive of all files in the output directory.
