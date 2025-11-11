@@ -113,8 +113,9 @@ def translate_summary(
     translated = [translate_text(line, src_lang=src_lang, tgt_lang=tgt_lang) for line in non_empty]
     tr_iter = iter(translated)
     result = "\n".join(next(tr_iter) if line.strip() else "" for line in lines)
-    result = re.sub(r'\*\*\s+', '**', result)
-    result = re.sub(r'\s+\*\*', '**', result)
+    result = re.sub(r'(\*\*)\s+(\w)', r'\1\2', result)
+    result = re.sub(r'(\w)\s+(\*\*)', r'\1\2', result)
+    result = re.sub(r'(?<=[^\s*])\*\*(?=\w)', r'** ', result)
     return result
 
 
