@@ -141,7 +141,7 @@ def scribe(
     srt_chunks = srt_group_chunks(f"{output_dir}/out.srt", group_size=20)
     if len(srt_chunks) == 0:
         return
-    print(srt_chunks)
+    print("chunks grouped")
     std_code = to_mbart50("en_XX")
     src_code = to_mbart50(
         lang_classifier(srt_chunks[0][1][:min(300, len(srt_chunks[0][1]))])[0]['label']
@@ -150,18 +150,18 @@ def scribe(
         (ts, translate_text(text, src_lang=src_code, tgt_lang=std_code) 
          if src_code != std_code else text) for ts, text in srt_chunks
     ]
-    print(translated_chunks)
+    print("chunks translated")
     summary = summarizer(
         "<text>" + " ".join([text for _, text in translated_chunks]) + "</text>",
         min_new_tokens=0,
         max_new_tokens=131072,
     )[0]['summary_text'].split("</text>", 1)[-1].split("</notes>", 1)[0]
-    print(summary)
+    print("summary generated")
 
     dst_code = to_mbart50(summary_lang)
     if dst_code != std_code:
         tr_summary = translate_summary(summary, src_lang=std_code, tgt_lang=dst_code)
-        print(tr_summary)
+        print("summary translated")
         with open(f"{output_dir}/summary_{summary_lang}.md", "w", encoding="utf-8") as f:
             f.write(tr_summary)
 
