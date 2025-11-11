@@ -99,6 +99,25 @@ def translate_text(text: str, src_lang: str, tgt_lang: str) -> str:
     return decoded[0]
 
 
+def translate_summary(
+    summary: str,
+    src_lang: str,
+    tgt_lang: str,
+) -> str:
+    """Translate summary text line-by-line, skipping empty lines and fixing markdown.
+    
+    Post-processes to fix malformed bold markers like '** text **' -> '**text**'.
+    """
+    lines = summary.split("\n")
+    non_empty = [line for line in lines if line.strip()]
+    translated = [translate_text(line, src_lang=src_lang, tgt_lang=tgt_lang) for line in non_empty]
+    tr_iter = iter(translated)
+    result = "\n".join(next(tr_iter) if line.strip() else "" for line in lines)
+    result = re.sub(r'\*\*\s+', '**', result)
+    result = re.sub(r'\s+\*\*', '**', result)
+    return result
+
+
 def scribe(
     url_or_file: str, 
     output_dir: str,
@@ -134,9 +153,16 @@ def scribe(
     summary = summarizer(
         "<text>" + " ".join([text for _, text in translated_chunks]) + "</text>",
         min_new_tokens=0,
-        max_new_tokens=16384,
-    )[0]['summary_text'].split("</text>", 1)[-1]
+        max_new_tokens=131072,
+    )[0]['summary_text'].split("</text>", 1)[-1].split("</notes>", 1)[0]
     print(summary)
+
+    dst_code = to_mbart50(summary_lang)
+    if dst_code != std_code:
+        tr_summary = translate_summary(summary, src_lang=std_code, tgt_lang=dst_code)
+        print(tr_summary)
+        with open(f"{output_dir}/summary_{summary_lang}.md", "w", encoding="utf-8") as f:
+            f.write(tr_summary)
 
     with open(f"{output_dir}/out_grouped.srt", "w", encoding="utf-8") as f:
         for i, (ts, text) in enumerate(srt_chunks, start=1):
