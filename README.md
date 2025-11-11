@@ -138,7 +138,7 @@ Use MBART‑50 target codes (e.g., `pl_PL`, `fr_XX`, `en_XX`). Source language a
 | Symptom | Possible Cause | Fix |
 |---------|----------------|-----|
 | Empty ZIP | Unsupported media/container | Convert locally with `ffmpeg -i input.mp4 output.wav` |
-| Slow summarization | GPU not utilized | Check NVIDIA toolkit + `DEVICE` env var |
+| Slow summarization | GPU not utilized (note: on RTX 4050 laptop GPU, processing of 20-minute long audio took 20 minutes) | Check NVIDIA toolkit + `DEVICE` env var |
 | Bold markdown malformed | Regex edge case | Report example; adjust `translate_summary()` cleanup rules |
 | DB errors on startup | Stale volume state | Remove `scribe-db-data` volume and restart |
 
