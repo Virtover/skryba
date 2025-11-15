@@ -2,11 +2,14 @@
 
 Multilingual media scribing, translation, and summarization pipeline with GPU acceleration. Skryba ingests audio/video (file or URL), transcribes speech, groups subtitles intelligently, normalizes to a standard language, summarizes with a long‑context model, and optionally re‑translates the summary into any supported target language. Outputs include grouped SRT captions, raw summary (`summary_en.md`), and translated summary (`summary_<lang>.md`).
 
-Future roadmap adds: a web frontend UI and a music‑to‑notes (MIDI/score) converter module.
+Includes a modern React web interface with drag-and-drop upload and real-time processing feedback.
+
+Future roadmap adds: a music‑to‑notes (MIDI/score) converter module.
 
 ---
 ## ✨ Features
 
+- **Web UI**: Modern React interface with drag-and-drop file upload and URL input
 - Speech transcription (Whisper large‑v3) with batched GPU inference
 - Automatic source language detection and MBART‑50 code mapping
 - Normalization pass (translate everything to a pivot language, default English)
@@ -22,19 +25,22 @@ Future roadmap adds: a web frontend UI and a music‑to‑notes (MIDI/score) con
 ## 🧱 Architecture
 
 ```
-Client → API Gateway (FastAPI) → Scribe Service (FastAPI)
-	|                                    |
-	|                                    ├─ Whisper transcription
-	|                                    ├─ Language detection (XLM-R)
-	|                                    ├─ MBART translation (pivot + target)
-	|                                    ├─ Subtitle grouping (SRT parser)
-	|                                    ├─ Summarization (Granite model)
-	|                                    └─ Markdown cleanup & packaging
-
-PostgreSQL ←(metadata: file ids, lifecycle)→ Scribe Service
+Browser → Frontend (React Router) → API Gateway (FastAPI) → Scribe Service (FastAPI)
+              ↓                            |                          |
+         Port 3000                    Port 8000                  Port 8001
+                                           |                          |
+                                           |                          ├─ Whisper transcription
+                                           |                          ├─ Language detection (XLM-R)
+                                           |                          ├─ MBART translation (pivot + target)
+                                           |                          ├─ Subtitle grouping (SRT parser)
+                                           |                          ├─ Summarization (Granite model)
+                                           |                          └─ Markdown cleanup & packaging
+                                           |
+                                      PostgreSQL ←(metadata: file ids, lifecycle)→ Scribe Service
 ```
 
 Components:
+- `frontend/`: React Router web interface with file upload, URL input, and language selection.
 - `api-gateway/`: Thin proxy layer forwarding file/URL requests to scribe service.
 - `scribe-service/`: Core processing pipeline and storage lifecycle.
 - `compose.yaml`: Multi‑service orchestration (GPU reservation, volumes, DB).
@@ -54,7 +60,25 @@ docker compose build
 docker compose up -d
 ```
 
-API gateway will be available at: `http://localhost:8001`
+Access the application:
+- **Web UI**: `http://localhost:3000` (recommended - modern interface)
+- **API Gateway**: `http://localhost:8000` (direct API access)
+
+---
+## 🎨 Using the Web Interface
+
+1. Open `http://localhost:3000` in your browser
+2. Choose your input method:
+   - **📁 Upload File**: Drag & drop or click to select audio/video files
+   - **🔗 From URL**: Paste a direct link to media content
+3. Select your desired summary language (50+ languages supported)
+4. Click **🚀 Start Transcription**
+5. Wait for processing (progress indicator shown)
+6. Your results will automatically download as a ZIP file containing:
+   - `out.srt` - Original transcription with timestamps
+   - `out_grouped.srt` - Grouped subtitles for better readability
+   - `summary_en.md` - English summary
+   - `summary_<lang>.md` - Translated summary (if requested language differs from English)
 
 ---
 ## 🔧 Configuration
@@ -69,6 +93,11 @@ Environment variables (set in `compose.yaml` for `scribe-service`):
 | POSTGRES_DB | DB name | `database` |
 | DEVICE | Inference device selector (`cpu`, `cuda`, `insane`) | `insane` |
 | HF_TOKEN | Hugging Face token (optional) | `hf_xxx` |
+
+Frontend configuration (set in `compose.yaml` build args):
+| Variable | Purpose | Example |
+|----------|---------|---------|
+| VITE_API_URL | API Gateway URL | `http://localhost:8000` |
 
 `DEVICE=insane` is a project‑specific shortcut (maps internally to an accelerated setting). Fallbacks to CPU when GPU not present.
 
@@ -86,6 +115,8 @@ Arabic (ar_AR), Czech (cs_CZ), German (de_DE), English (en_XX), Spanish (es_XX),
 ---
 ## 📡 API Usage
 
+> **Note**: For most users, the web interface at `http://localhost:3000` is recommended. The API endpoints below are for direct programmatic access.
+
 ### 1. Scribe from file
 POST `/scribe-file/{summary_lang}`
 
@@ -99,7 +130,7 @@ Response: ZIP archive containing:
 
 Example (PowerShell):
 ```powershell
-Invoke-WebRequest -Uri http://localhost:8001/scribe-file/pl_PL -Method POST -InFile .\sample.mp3 -OutFile result.zip -ContentType multipart/form-data
+Invoke-WebRequest -Uri http://localhost:8000/scribe-file/pl_PL -Method POST -InFile .\sample.mp3 -OutFile result.zip -ContentType multipart/form-data
 ```
 
 ### 2. Scribe from URL
@@ -128,17 +159,26 @@ Use MBART‑50 target codes (e.g., `pl_PL`, `fr_XX`, `en_XX`). Source language a
 
 ---
 ## 🛣 Roadmap
-- Frontend UI (React/Vue + real‑time progress)
+- ✅ ~~Frontend UI (React/Vue + real‑time progress)~~ **COMPLETED**
 - Music‑to‑notes converter (audio → MIDI/score using pitch detection + quantization)
+- WebSocket support for real-time progress updates
 - Persistent job queue & retry (Redis/RQ or Celery)
+- User authentication and job history
 - Observability: Prometheus metrics + OpenTelemetry traces
+- Batch processing for multiple files
 
 ---
 ## 🩺 Troubleshooting
 | Symptom | Possible Cause | Fix |
 |---------|----------------|-----|
+| Frontend not loading | Services not started | Run `docker compose up -d` and check logs with `docker compose logs frontend` |
 | Empty ZIP | Unsupported media/container | Convert locally with `ffmpeg -i input.mp4 output.wav` |
 | Slow summarization | GPU not utilized (note: on RTX 4050 laptop GPU, processing of 20-minute long audio took 20 minutes) | Check NVIDIA toolkit + `DEVICE` env var |
+| Bold markdown malformed | Regex edge case | Report example; adjust `translate_summary()` cleanup rules |
+| DB errors on startup | Stale volume state | Remove `scribe-db-data` volume and restart |
+| CORS errors in browser | API URL misconfigured | Check `VITE_API_URL` in frontend build args |
+| Empty ZIP | Unsupported media/container | Convert locally with `ffmpeg -i input.mp4 output.wav` |
+| Slow summarization | GPU not utilized (note: on RTX 4050 laptop GPU, processing of 20-minute long audio takes 20 minutes) | Check NVIDIA toolkit + `DEVICE` env var |
 | Bold markdown malformed | Regex edge case | Report example; adjust `translate_summary()` cleanup rules |
 | DB errors on startup | Stale volume state | Remove `scribe-db-data` volume and restart |
 
