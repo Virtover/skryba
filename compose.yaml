@@ -54,13 +54,10 @@ services:
       - scribe-service
 
   frontend:
-    build: ./frontend
-    environment:
-      REACT_APP_API_GATEWAY_URL: http://localhost:8000
-      REACT_APP_API_GATEWAY_WS_URL: ws://localhost:8000
-      WATCHPACK_POLLING: true
-    volumes:
-      - ./frontend:/frontend
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: http://localhost:8000
     ports:
       - 3000:3000
     depends_on:
