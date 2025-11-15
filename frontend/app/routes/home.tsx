@@ -267,7 +267,7 @@ export default function Home() {
                     Processing...
                   </span>
                 ) : (
-                  "🚀 Start Transcription"
+                  "🚀 Transcribe & Summarize"
                 )}
               </button>
             </form>
