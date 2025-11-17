@@ -72,7 +72,7 @@ Access the application:
    - **📁 Upload File**: Drag & drop or click to select audio/video files
    - **🔗 From URL**: Paste a direct link to media content
 3. Select your desired summary language (50+ languages supported)
-4. Click **🚀 Start Transcription**
+4. Click **🚀 Transcribe & Summarize**
 5. Wait for processing (progress indicator shown)
 6. Your results will automatically download as a ZIP file containing:
    - `out.srt` - Original transcription with timestamps
